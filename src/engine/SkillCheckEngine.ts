@@ -377,10 +377,12 @@ export class SkillCheckEngine {
     const size = Math.min(W, H) / this.dpr;
     const r = Math.min(180, size * 0.28); // a touch smaller -> denser, more game-like
 
-    // Idle state — soft hint that we're waiting
+    // Idle state — ring visible but dimmed, key label prominent
     if (!this.active) {
-      ctx.globalAlpha = 0.18;
+      ctx.globalAlpha = 0.55;
       this.drawDialFrame(ctx, cx, cy, r);
+      ctx.globalAlpha = 0.75;
+      this.drawKeyLabel(ctx, cx, cy);
       ctx.globalAlpha = 1;
       ctx.fillStyle = 'rgba(232,216,196,0.42)';
       ctx.font = '500 13px ui-sans-serif, system-ui';
@@ -468,35 +470,40 @@ export class SkillCheckEngine {
   // The bare metallic ring + soft outer halo, used both for the live dial and
   // the idle placeholder. No zones, no needle.
   private drawDialFrame(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
-    // Soft outer halo so the dial reads against any background
-    const halo = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * 1.7);
-    halo.addColorStop(0, 'rgba(0,0,0,0.55)');
-    halo.addColorStop(0.6, 'rgba(0,0,0,0.25)');
+    const BAND = Math.round(r * 0.27); // ~49px at r=180, matches DbD ring proportions
+    const H = BAND / 2;
+    const rO = r + H; // outer ring edge
+    const rI = r - H; // inner ring edge
+
+    // Soft outer shadow halo
+    const halo = ctx.createRadialGradient(cx, cy, rI * 0.8, cx, cy, rO * 1.6);
+    halo.addColorStop(0, 'rgba(0,0,0,0)');
+    halo.addColorStop(0.5, 'rgba(0,0,0,0.55)');
     halo.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = halo;
     ctx.beginPath();
-    ctx.arc(cx, cy, r * 1.7, 0, TAU);
+    ctx.arc(cx, cy, rO * 1.6, 0, TAU);
     ctx.fill();
 
-    // Outer rim — slightly bright edge
-    ctx.strokeStyle = 'rgba(180,168,150,0.45)';
+    // Ring body — filled donut (solid, no stroke artifacts)
+    ctx.fillStyle = 'rgba(16,13,11,0.97)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, rO, 0, TAU, false); // outer clockwise
+    ctx.arc(cx, cy, rI, 0, TAU, true);  // inner counter-clockwise = hole
+    ctx.fill();
+
+    // Outer rim highlight
+    ctx.strokeStyle = 'rgba(200,190,175,0.6)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(cx, cy, r + 8, 0, TAU);
+    ctx.arc(cx, cy, rO, 0, TAU);
     ctx.stroke();
 
-    // Main ring band — dark base where the zones sit
-    ctx.strokeStyle = 'rgba(28,24,22,0.85)';
-    ctx.lineWidth = 14;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, TAU);
-    ctx.stroke();
-
-    // Inner rim
-    ctx.strokeStyle = 'rgba(180,168,150,0.35)';
+    // Inner rim highlight
+    ctx.strokeStyle = 'rgba(160,150,135,0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(cx, cy, r - 8, 0, TAU);
+    ctx.arc(cx, cy, rI, 0, TAU);
     ctx.stroke();
   }
 
@@ -504,87 +511,66 @@ export class SkillCheckEngine {
     ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number,
     a: ActiveCheck, now: number,
   ) {
+    const BAND = Math.round(r * 0.27);
+    const H = BAND / 2;
+
     this.drawDialFrame(ctx, cx, cy, r);
 
-    // Good zone(s) — bright bone/cream, full ring-band width
-    this.drawZone(ctx, cx, cy, r, a.goodStart, a.goodEnd, '#f0e5d2', 14, false);
+    // Good zone(s) — pure white, full band width
+    this.drawZone(ctx, cx, cy, r, a.goodStart, a.goodEnd, '#ffffff', BAND, false);
     if (a.goodStart2 != null && a.goodEnd2 != null)
-      this.drawZone(ctx, cx, cy, r, a.goodStart2, a.goodEnd2, '#f0e5d2', 14, false);
+      this.drawZone(ctx, cx, cy, r, a.goodStart2, a.goodEnd2, '#ffffff', BAND, false);
 
-    // Great zone(s) — bright crimson with outer red glow
-    this.drawZone(ctx, cx, cy, r, a.greatStart, a.greatEnd, '#ee1c25', 14, true);
+    // Great zone(s) — bright crimson with glow, same band width
+    this.drawZone(ctx, cx, cy, r, a.greatStart, a.greatEnd, '#ee1c25', BAND, true);
     if (a.greatStart2 != null && a.greatEnd2 != null)
-      this.drawZone(ctx, cx, cy, r, a.greatStart2, a.greatEnd2, '#ee1c25', 14, true);
+      this.drawZone(ctx, cx, cy, r, a.greatStart2, a.greatEnd2, '#ee1c25', BAND, true);
 
-    // Subtle inner highlight on the good zone (gives the white some "lit" feel)
+    // 12 o'clock tick — notch just outside the outer rim
+    ctx.strokeStyle = 'rgba(232,216,196,0.7)';
     ctx.lineWidth = 2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
     ctx.beginPath();
-    ctx.arc(cx, cy, r - 4.5, turnsToRad(a.goodStart), turnsToRad(a.goodEnd));
-    ctx.stroke();
-    if (a.goodStart2 != null && a.goodEnd2 != null) {
-      ctx.beginPath();
-      ctx.arc(cx, cy, r - 4.5, turnsToRad(a.goodStart2), turnsToRad(a.goodEnd2));
-      ctx.stroke();
-    }
-
-    // 12 o'clock tick — thin notch on the outer rim
-    ctx.strokeStyle = 'rgba(232,216,196,0.65)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - r - 10);
-    ctx.lineTo(cx, cy - r - 3);
+    ctx.moveTo(cx, cy - r - H - 3);
+    ctx.lineTo(cx, cy - r - H - 11);
     ctx.stroke();
 
-    // Center pivot — small filled bone-colored disc with subtle outline
-    if (a.triggered) {
-      ctx.fillStyle = '#f0e5d2';
-      ctx.beginPath();
-      ctx.arc(cx, cy, 3.5, 0, TAU);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 0.75;
-      ctx.stroke();
-    }
+    // Key label in center
+    this.drawKeyLabel(ctx, cx, cy);
 
     // Needle
     if (a.triggered) {
       this.drawNeedle(ctx, cx, cy, r, a);
     } else {
-      // pre-trigger: short red breathing pulse at the center while we wait for the warning
+      // pre-trigger: pulse ring around the keycap
       const t = a.warningLeadMs > 0 ? Math.min(1, (now - a.shownAt) / a.warningLeadMs) : 1;
-      ctx.fillStyle = `rgba(238,28,37,${0.25 + 0.55 * t})`;
+      ctx.strokeStyle = `rgba(238,28,37,${0.2 + 0.4 * t})`;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(cx, cy, 3 + t * 5, 0, TAU);
-      ctx.fill();
+      ctx.arc(cx, cy, 18 + t * 6, 0, TAU);
+      ctx.stroke();
     }
   }
 
   private drawNeedle(
     ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, a: ActiveCheck,
   ) {
+    const BAND = Math.round(r * 0.27);
     const ang = turnsToRad(a.needle);
-    const tipR = r + 6;
-    const innerR = 4;
-    const baseHalfW = 3.5;
+    const tipR = r + BAND / 2 + 5; // tip sits just past the outer ring edge
+    const innerR = 5;
+    const baseHalfW = 2;
 
-    // Tapered triangular needle pointing outward
     const ux = Math.cos(ang), uy = Math.sin(ang);
-    const nx = -uy, ny = ux; // perpendicular
+    const nx = -uy, ny = ux;
     const tipX = cx + ux * tipR, tipY = cy + uy * tipR;
     const baseX = cx + ux * innerR, baseY = cy + uy * innerR;
     const baseLX = baseX + nx * baseHalfW, baseLY = baseY + ny * baseHalfW;
     const baseRX = baseX - nx * baseHalfW, baseRY = baseY - ny * baseHalfW;
 
-    // Soft glow behind needle
+    // Red glow
     ctx.shadowColor = '#ff2929';
-    ctx.shadowBlur = 14;
-    // Body
-    const grad = ctx.createLinearGradient(baseX, baseY, tipX, tipY);
-    grad.addColorStop(0, '#ff7575');
-    grad.addColorStop(0.6, '#ff2929');
-    grad.addColorStop(1, '#ffd0d0');
-    ctx.fillStyle = grad;
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = '#ee1c25';
     ctx.beginPath();
     ctx.moveTo(tipX, tipY);
     ctx.lineTo(baseLX, baseLY);
@@ -593,27 +579,70 @@ export class SkillCheckEngine {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Thin bright outline for crispness
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 0.6;
+    // Bright center spine for crispness
+    ctx.strokeStyle = 'rgba(255,180,180,0.7)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(cx + ux * innerR, cy + uy * innerR);
+    ctx.lineTo(tipX, tipY);
     ctx.stroke();
   }
 
+  private getKeyLabel(): string {
+    const b = this.bindingsRef.current[0] ?? 'Space';
+    if (b.startsWith('Mouse')) return ['LMB', 'MMB', 'RMB', 'M4', 'M5'][Number(b.slice(5))] ?? b;
+    if (b.startsWith('Key')) return b.slice(3);
+    if (b.startsWith('Digit')) return b.slice(5);
+    if (b.startsWith('Arrow')) return '↑↓←→'[['Up','Down','Left','Right'].indexOf(b.slice(5))] ?? b.slice(5);
+    return b;
+  }
+
+  private drawKeyLabel(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+    const label = this.getKeyLabel();
+    const fontSize = 14;
+    ctx.font = `600 ${fontSize}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
+    const textW = ctx.measureText(label).width;
+    const padX = 13, padY = 7;
+    const boxW = Math.max(58, textW + padX * 2);
+    const boxH = fontSize + padY * 2;
+    const bx = cx - boxW / 2;
+    const by = cy - boxH / 2;
+
+    ctx.fillStyle = 'rgba(14,11,9,0.92)';
+    ctx.beginPath();
+    ctx.roundRect(bx, by, boxW, boxH, 5);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(180,168,150,0.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#e8d8c4';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, cx, cy);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // Draws a filled arc band with radial (wedge-cut) edges — matches the DbD look.
+  // `width` is the total band thickness; the band is centered on radius r.
   private drawZone(
     ctx: CanvasRenderingContext2D,
     cx: number, cy: number, r: number,
     startTurns: number, endTurns: number,
     color: string, width: number, glow: boolean,
   ) {
-    if (glow) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 18;
-    }
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
+    const start = turnsToRad(startTurns);
+    const end   = turnsToRad(endTurns);
+    const rO = r + width / 2;
+    const rI = r - width / 2;
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 20; }
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(cx, cy, r, turnsToRad(startTurns), turnsToRad(endTurns));
-    ctx.stroke();
+    ctx.arc(cx, cy, rO, start, end, false); // outer arc clockwise
+    ctx.arc(cx, cy, rI, end, start, true);  // inner arc counter-clockwise
+    ctx.closePath();
+    ctx.fill();
     if (glow) ctx.shadowBlur = 0;
   }
 }

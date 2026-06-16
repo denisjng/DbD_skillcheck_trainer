@@ -56,7 +56,7 @@ export function applyDifficulty(mode: ModeDef, d: Difficulty): SkillCheckSpec {
 }
 
 const DEFAULT_BASE: SkillCheckSpec = {
-  goodFraction: 0.15,
+  goodFraction: 0.13,   // generator standard (wiki: 13%)
   greatFraction: 0.03,
   rotationSeconds: 1.1,
   spawnMin: 0.33,   // 4 o'clock
@@ -73,26 +73,26 @@ export const MODES: ModeDef[] = [
   {
     id: 'classic',
     name: 'Classic Repair',
-    short: 'Standard generator skill checks. The bread and butter.',
-    description: 'Repair-style checks at the default ~8%/sec trigger rate. Hit the great zone at the leading edge of the white arc.',
-    triggerChancePerSec: 0.55, // higher than in-game so training is dense
+    short: 'Standard generator skill checks. 8%/sec trigger.',
+    description: 'Repairing a generator: 8% chance per second to spawn a check. Good zone 13%, great zone 3%, 1.1s rotation. Zone appears from 4 o\'clock onwards.',
+    triggerChancePerSec: 0.08,
     base: { ...DEFAULT_BASE },
   },
   {
     id: 'healing',
     name: 'Healing',
-    short: 'Same look as repair, slightly tighter window.',
-    description: 'Healing skill checks. Visually identical to repair (white good, red great), but the windows are a touch tighter to match the in-game feel of healing actions.',
-    triggerChancePerSec: 0.55,
-    base: { ...DEFAULT_BASE, goodFraction: 0.13, greatFraction: 0.028 },
+    short: 'Altruistic healing. 15%/sec trigger, wider zones.',
+    description: 'Altruistic healing checks: 15% chance per second. Good zone 15%, great zone 3%, 1.2s rotation. Zone appears from 4 o\'clock onwards.',
+    triggerChancePerSec: 0.15,
+    base: { ...DEFAULT_BASE, goodFraction: 0.15, greatFraction: 0.03, rotationSeconds: 1.2 },
   },
   {
     id: 'overcharge',
     name: 'Overcharge',
-    short: 'Doctor / Overcharge. Tiny great zone — pure precision.',
-    description: 'Difficult skill check with a shrunken great zone. Trains reaction precision on the leading edge.',
-    triggerChancePerSec: 0.55,
-    base: { ...DEFAULT_BASE, greatFraction: 0.015, goodFraction: 0.12 },
+    short: 'Always triggers. 7% great zone, 1.2s rotation.',
+    description: 'Overcharge (Tier I): always triggers on generators. Great zone 7%, good zone 12%, 1.2s rotation. Fail causes -13% regression.',
+    triggerChancePerSec: 999,
+    base: { ...DEFAULT_BASE, greatFraction: 0.07, goodFraction: 0.12, rotationSeconds: 1.2 },
   },
   {
     id: 'unnerving',
@@ -139,11 +139,11 @@ export const MODES: ModeDef[] = [
     id: 'ds',
     name: 'Decisive Strike',
     short: 'Wiggle bar fills, then one check. Greats only.',
-    description: 'You are being carried. The wiggle bar fills over a few seconds, then a single skill check appears — only a great stuns the killer. Anything else fails the attempt.',
+    description: 'You are being carried. The wiggle bar fills, then a single skill check appears — only a great stuns the killer. Great zone 7%, 1.1s rotation, zone starts at 8 o\'clock.',
     triggerChancePerSec: 0,
     marathonTarget: 5,
     failCap: 1,
-    base: { ...DEFAULT_BASE, warningLeadMs: 120, rotationSeconds: 1.0, greatFraction: 0.025, greatOnly: true, showWiggleBar: true },
+    base: { ...DEFAULT_BASE, warningLeadMs: 120, rotationSeconds: 1.1, greatFraction: 0.07, goodFraction: 0.07, greatOnly: true, showWiggleBar: true, spawnMin: 0.67, spawnMax: 0.85 },
   },
   {
     id: 'hookstruggle',
@@ -159,11 +159,11 @@ export const MODES: ModeDef[] = [
     id: 'snap',
     name: 'Snap Out of It',
     short: 'Continuous Madness checks until you clear it.',
-    description: 'Madness Tier 3 cure: a continuous stream of Madness-style skill checks (off-center, reverse, no warning). Hit 8 greats in a row to snap out. Miss any and the Doctor flashes in.',
+    description: 'Madness Tier 3 cure: continuous Madness-style checks (off-center, reverse). Great zone 12%, greats only, 1.2s rotation, zone starts at 2 o\'clock. Hit 8 greats in a row to snap out.',
     triggerChancePerSec: 999,
     failCap: 1,
     marathonTarget: 8,
-    base: { ...DEFAULT_BASE, continuous: true, reverseChance: 0.4, offCenterChance: 0.4, horrorOnMiss: true, warningLeadMs: 60, rotationSeconds: 1.05 },
+    base: { ...DEFAULT_BASE, continuous: true, reverseChance: 0.4, offCenterChance: 0.4, horrorOnMiss: true, warningLeadMs: 60, rotationSeconds: 1.2, greatFraction: 0.12, goodFraction: 0.12, greatOnly: true, spawnMin: 0.17 },
   },
   {
     id: 'endless',
