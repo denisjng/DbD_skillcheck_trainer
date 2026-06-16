@@ -71,7 +71,6 @@ export function Play() {
   }, [modeId, difficulty, runKey]);
 
   const mode = MODE_BY_ID[modeId];
-  const acc = stats.attempts > 0 ? (stats.greats / stats.attempts) * 100 : 0;
   const goodAcc = stats.attempts > 0 ? ((stats.greats + stats.goods) / stats.attempts) * 100 : 0;
 
   return (
@@ -89,20 +88,28 @@ export function Play() {
         <div style={{ width: 130 }} />
       </div>
 
-      {/* Stats overlay */}
-      <div className="absolute top-20 left-6 z-10 fade-in">
+      {/* Stats overlay — vertical panel on desktop, horizontal strip on mobile */}
+      <div className="absolute top-20 left-6 z-10 fade-in hidden sm:block">
         <div className="panel px-4 py-3 space-y-1 min-w-[180px]">
           <Row label="Streak" value={String(stats.streak)} accent={lastOutcome === 'great' ? '#c1121f' : undefined} />
           <Row label="Best" value={String(stats.bestStreak)} />
           <Row label="Greats" value={`${stats.greats} / ${stats.attempts}`} />
-          <Row label="Accuracy" value={`${acc.toFixed(1)}%`} />
           <Row label="Hit rate" value={`${goodAcc.toFixed(1)}%`} />
-          <Row label="React (ms)" value={`${stats.reactionMsLast} avg ${stats.reactionMsAvg}`} />
         </div>
       </div>
 
-      {/* Bindings reminder */}
-      <div className="absolute top-20 right-6 z-10 fade-in">
+      {/* Mobile compact strip at bottom */}
+      <div className="absolute bottom-6 left-4 right-4 z-10 fade-in sm:hidden">
+        <div className="panel px-4 py-2 flex justify-around items-center">
+          <CompactStat label="Streak" value={String(stats.streak)} accent={lastOutcome === 'great' ? '#c1121f' : undefined} />
+          <CompactStat label="Best" value={String(stats.bestStreak)} />
+          <CompactStat label="Greats" value={`${stats.greats}/${stats.attempts}`} />
+          <CompactStat label="Hit%" value={`${goodAcc.toFixed(0)}%`} />
+        </div>
+      </div>
+
+      {/* Bindings reminder — desktop only */}
+      <div className="absolute top-20 right-6 z-10 fade-in hidden sm:block">
         <div className="panel px-4 py-3">
           <div className="label mb-1">Hit with</div>
           <div className="flex gap-2 flex-wrap max-w-[260px] justify-end">
@@ -138,6 +145,15 @@ function Row({ label, value, accent }: { label: string; value: string; accent?: 
     <div className="flex items-baseline justify-between gap-4">
       <span className="label">{label}</span>
       <span className="font-mono text-lg" style={accent ? { color: accent } : undefined}>{value}</span>
+    </div>
+  );
+}
+
+function CompactStat({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <span className="label text-[10px]">{label}</span>
+      <span className="font-mono text-base" style={accent ? { color: accent } : undefined}>{value}</span>
     </div>
   );
 }

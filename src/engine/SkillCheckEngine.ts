@@ -140,7 +140,7 @@ export class SkillCheckEngine {
     const b = e.code;
     if (this.bindingsRef.current.includes(b)) {
       if (b === 'Space' || b === 'Tab' || b.startsWith('Arrow')) e.preventDefault();
-      this.handleHit();
+      this.handleHit(e.timeStamp);
     }
   };
   private onMouse = (e: MouseEvent) => {
@@ -148,7 +148,7 @@ export class SkillCheckEngine {
     const b = `Mouse${e.button}`;
     if (this.bindingsRef.current.includes(b)) {
       e.preventDefault();
-      this.handleHit();
+      this.handleHit(e.timeStamp);
     }
   };
   private onContextMenu = (e: MouseEvent) => {
@@ -156,16 +156,28 @@ export class SkillCheckEngine {
     if (this.bindingsRef.current.includes('Mouse2')) e.preventDefault();
   };
 
-  private handleHit() {
+  private handleHit(hitTime = performance.now()) {
     if (!this.active || !this.active.triggered) return;
     const a = this.active;
-    const pos = a.needle;
-    // Hit detection — check great first, then good. Wiggle has two zones.
+
+    // The needle is updated once per RAF frame (~16ms). At nightmare speed the
+    // great zone can be narrower than one frame of movement, so a point-check
+    // on a.needle alone is unreliable in two opposite ways:
+    //   • a.needle is before the zone but the "real" position is inside → miss
+    //   • a.needle is inside but interpolating forward overshoots past end → miss
+    // Sweep detection solves both: check whether the zone overlaps the segment
+    // [a.needle … posNow] (the range the needle covered since the last frame).
+    const elapsed = Math.max(0, Math.min(0.033, (hitTime - this.lastFrameTime) / 1000));
+    const posNow = a.needle + a.direction * a.speed * elapsed;
+    const lo = Math.min(a.needle, posNow);
+    const hi = Math.max(a.needle, posNow);
+    const sweeps = (start: number, end: number) => lo <= end && hi >= start;
+
     let outcome: Outcome = 'miss';
-    if (inArc(pos, a.greatStart, a.greatEnd)) outcome = 'great';
-    else if (a.greatStart2 != null && a.greatEnd2 != null && inArc(pos, a.greatStart2, a.greatEnd2)) outcome = 'great';
-    else if (inArc(pos, a.goodStart, a.goodEnd)) outcome = 'good';
-    else if (a.goodStart2 != null && a.goodEnd2 != null && inArc(pos, a.goodStart2, a.goodEnd2)) outcome = 'good';
+    if (sweeps(a.greatStart, a.greatEnd)) outcome = 'great';
+    else if (a.greatStart2 != null && a.greatEnd2 != null && sweeps(a.greatStart2, a.greatEnd2)) outcome = 'great';
+    else if (sweeps(a.goodStart, a.goodEnd)) outcome = 'good';
+    else if (a.goodStart2 != null && a.goodEnd2 != null && sweeps(a.goodStart2, a.goodEnd2)) outcome = 'good';
     // DS — goods don't count, only great stuns
     if (this.spec.greatOnly && outcome === 'good') outcome = 'miss';
     this.resolve(outcome);
@@ -492,20 +504,19 @@ export class SkillCheckEngine {
     ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number,
     a: ActiveCheck, now: number,
   ) {
-    // Zone is thick relative to the thin track ring
-    const ZONE_W = Math.round(r * 0.22); // total zone thickness (~40px at r=180)
+    const ZONE_W = Math.round(r * 0.13); // thinner band (~23px at r=180)
 
     this.drawDialFrame(ctx, cx, cy, r);
 
-    // Good zone(s) — thick white arc band
-    this.drawZone(ctx, cx, cy, r, a.goodStart, a.goodEnd, '#ffffff', ZONE_W, false);
+    // Good zone(s) — hollow outline only
+    this.drawZone(ctx, cx, cy, r, a.goodStart, a.goodEnd, 'rgba(255,255,255,0.85)', ZONE_W, false, false);
     if (a.goodStart2 != null && a.goodEnd2 != null)
-      this.drawZone(ctx, cx, cy, r, a.goodStart2, a.goodEnd2, '#ffffff', ZONE_W, false);
+      this.drawZone(ctx, cx, cy, r, a.goodStart2, a.goodEnd2, 'rgba(255,255,255,0.85)', ZONE_W, false, false);
 
-    // Great zone(s) — bright crimson with glow, same thickness, narrower angular span
-    this.drawZone(ctx, cx, cy, r, a.greatStart, a.greatEnd, '#ee1c25', ZONE_W, true);
+    // Great zone(s) — solid white fill
+    this.drawZone(ctx, cx, cy, r, a.greatStart, a.greatEnd, '#ffffff', ZONE_W, true);
     if (a.greatStart2 != null && a.greatEnd2 != null)
-      this.drawZone(ctx, cx, cy, r, a.greatStart2, a.greatEnd2, '#ee1c25', ZONE_W, true);
+      this.drawZone(ctx, cx, cy, r, a.greatStart2, a.greatEnd2, '#ffffff', ZONE_W, true);
 
     // 12 o'clock tick — notch just outside the zone edge
     const H = ZONE_W / 2;
@@ -536,7 +547,7 @@ export class SkillCheckEngine {
   private drawNeedle(
     ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, a: ActiveCheck,
   ) {
-    const ZONE_W = Math.round(r * 0.22);
+    const ZONE_W = Math.round(r * 0.13);
     const ang = turnsToRad(a.needle);
     const tipR = r + ZONE_W / 2 + 4; // tip just past the outer zone edge
     const innerR = 4;
@@ -593,25 +604,33 @@ export class SkillCheckEngine {
     ctx.textBaseline = 'alphabetic';
   }
 
-  // Draws a filled arc band with radial (wedge-cut) edges — matches the DbD look.
-  // `width` is the total band thickness; the band is centered on radius r.
+  // Draws an arc band centered on radius r with radial (wedge-cut) edges.
+  // filled=true → solid fill; filled=false → outline only (hollow rectangle).
   private drawZone(
     ctx: CanvasRenderingContext2D,
     cx: number, cy: number, r: number,
     startTurns: number, endTurns: number,
-    color: string, width: number, glow: boolean,
+    color: string, width: number, glow: boolean, filled = true,
   ) {
     const start = turnsToRad(startTurns);
     const end   = turnsToRad(endTurns);
     const rO = r + width / 2;
     const rI = r - width / 2;
-    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 20; }
-    ctx.fillStyle = color;
+    if (glow) { ctx.shadowColor = color; ctx.shadowBlur = 16; }
+    // Build the band path: outer arc + inner arc (radial ends implied by closePath)
     ctx.beginPath();
-    ctx.arc(cx, cy, rO, start, end, false); // outer arc clockwise
-    ctx.arc(cx, cy, rI, end, start, true);  // inner arc counter-clockwise
+    ctx.arc(cx, cy, rO, start, end, false);
+    ctx.lineTo(cx + Math.cos(end) * rI, cy + Math.sin(end) * rI);
+    ctx.arc(cx, cy, rI, end, start, true);
     ctx.closePath();
-    ctx.fill();
+    if (filled) {
+      ctx.fillStyle = color;
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
     if (glow) ctx.shadowBlur = 0;
   }
 }
@@ -622,15 +641,10 @@ function easeOutCubic(t: number): number {
 
 // helpers
 function inArc(needle: number, start: number, end: number): boolean {
-  // unwrap into [start, start+1]
-  let n = needle;
-  if (end < start) {
-    // shouldn't happen with current spawn logic, but be defensive
-    if (n < start) n += 1;
-    return n >= start && n <= end + 1;
-  }
-  if (n < start - 0.5) n += 1;
-  return n >= start && n <= end;
+  // The needle is always linear (never wrapped) in this engine, so a plain range
+  // check is correct. Modular arithmetic caused false positives when the needle
+  // was near 0 and a zone was spawned near the top (start ≈ 0.92).
+  return needle >= start && needle <= end;
 }
 
 function turnsToRad(t: number): number {
