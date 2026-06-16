@@ -1,155 +1,277 @@
 @import "tailwindcss";
 
+/* ============================================================
+   DbD Skillcheck Trainer — Design System
+   Palette + layout inspired by Dead by Daylight's UI
+   ============================================================ */
+
 @theme {
-  --color-bg: #0a0908;
-  --color-panel: #14110f;
-  --color-panel-2: #1c1816;
-  --color-border: #2a2421;
-  --color-blood: #8b0000;
-  --color-blood-bright: #c1121f;
-  --color-bone: #e8d8c4;
-  --color-rust: #6a3410;
-  --color-amber: #d49b3a;
-  --font-display: "Cinzel", "Trajan Pro", "Times New Roman", serif;
+  /* Background surfaces */
+  --color-bg:          #07060400;
+  --color-surface:     #0c0a07;
+  --color-panel:       #100e0a;
+  --color-panel-2:     #171410;
+  --color-border:      #1c1810;
+  --color-border-hi:   #302a1c;
+
+  /* Amber / gold — DbD's signature accent */
+  --color-amber:       #c8832c;
+  --color-amber-dim:   #7a5018;
+  --color-amber-glow:  rgba(200,131,44,0.3);
+
+  /* Blood red */
+  --color-blood:       #6e0010;
+  --color-blood-bright:#c01020;
+  --color-blood-glow:  rgba(192,16,32,0.35);
+
+  /* Text */
+  --color-bone:        #d4c4a4;
+  --color-bone-dim:    #9a8a6a;
+  --color-muted:       #524638;
+
+  /* Legacy */
+  --color-rust:        #6a3410;
+
+  --font-display: "Cinzel", "Trajan Pro", serif;
+  --font-body:    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* ---- Reset / Base ---- */
 html, body, #root {
   height: 100%;
   margin: 0;
-  background: var(--color-bg);
+  background: #07060400;
   color: var(--color-bone);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
 }
-
 * { box-sizing: border-box; }
+button { font-family: inherit; cursor: pointer; }
+input[type=range] { cursor: pointer; }
 
-button { font-family: inherit; }
+/* ---- Atmospheric background ---- */
+/* Base dark canvas with subtle warm noise texture */
+.dbd-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 140% 80% at 50% 110%, rgba(30,14,4,0.9) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 70% at 0%   50%, rgba(8,5,2,0.8)   0%, transparent 60%),
+    radial-gradient(ellipse 60% 70% at 100% 50%, rgba(8,5,2,0.8)   0%, transparent 60%),
+    radial-gradient(ellipse 100% 50% at 50% 0%,  rgba(0,0,0,0.75)  0%, transparent 55%),
+    #080604;
+}
 
-/* DbD-ish vignette and film grain */
+/* Vignette darkening the edges */
 .vignette::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 2;
   background: radial-gradient(ellipse at center,
-    transparent 40%,
-    rgba(0,0,0,0.55) 85%,
-    rgba(0,0,0,0.9) 100%);
+    transparent 30%,
+    rgba(0,0,0,0.55) 75%,
+    rgba(0,0,0,0.92) 100%);
 }
 
+/* Animated film grain */
 .grain::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.07;
+  z-index: 3;
+  opacity: 0.055;
   mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0 0.7 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0 0.7 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
 }
 
-.glow-blood { box-shadow: 0 0 24px rgba(193,18,31,0.45), inset 0 0 12px rgba(193,18,31,0.25); }
-.text-shadow { text-shadow: 0 1px 0 rgba(0,0,0,0.7), 0 0 14px rgba(0,0,0,0.6); }
+/* ---- DbD decorative fade-rule ---- */
+/* Usage: <div class="dbd-rule"><span>◆</span></div> */
+.dbd-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.dbd-rule::before,
+.dbd-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+.dbd-rule::before {
+  background: linear-gradient(90deg, transparent 0%, var(--color-amber-dim) 70%, var(--color-amber) 100%);
+}
+.dbd-rule::after {
+  background: linear-gradient(270deg, transparent 0%, var(--color-amber-dim) 70%, var(--color-amber) 100%);
+}
+.dbd-rule > span {
+  color: var(--color-amber);
+  font-size: 7px;
+  line-height: 1;
+  flex-shrink: 0;
+}
 
+/* ---- Typography ---- */
+.label {
+  font-size: 0.63rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  font-family: var(--font-display);
+}
+
+.section-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-amber-dim);
+  font-family: var(--font-display);
+}
+
+.text-shadow { text-shadow: 0 2px 6px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.6); }
+
+/* ---- Panel / card ---- */
+.panel {
+  background: linear-gradient(160deg, var(--color-panel-2) 0%, var(--color-panel) 100%);
+  border: 1px solid var(--color-border-hi);
+}
+
+/* ---- Buttons ---- */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid var(--color-border);
+  padding: 0.6rem 1.4rem;
+  border: 1px solid var(--color-border-hi);
   background: linear-gradient(180deg, var(--color-panel-2) 0%, var(--color-panel) 100%);
-  color: var(--color-bone);
-  letter-spacing: 0.05em;
+  color: var(--color-bone-dim);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  font-size: 0.875rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  font-family: var(--font-display);
   cursor: pointer;
-  transition: transform 80ms ease, border-color 120ms ease, background 120ms ease, color 120ms ease;
+  transition: border-color 130ms ease, color 130ms ease, background 130ms ease, transform 70ms ease, box-shadow 130ms ease;
   user-select: none;
 }
-.btn:hover { border-color: var(--color-amber); color: #fff; }
+.btn:hover {
+  border-color: var(--color-amber);
+  color: var(--color-bone);
+  background: linear-gradient(180deg, #201a0d 0%, #181309 100%);
+}
 .btn:active { transform: translateY(1px); }
-.btn-primary { border-color: var(--color-blood); color: #fff; }
-.btn-primary:hover { background: linear-gradient(180deg, #2a0d0d 0%, #1c0707 100%); border-color: var(--color-blood-bright); }
-.btn-ghost { background: transparent; }
 
-.panel {
-  background: linear-gradient(180deg, var(--color-panel-2) 0%, var(--color-panel) 100%);
-  border: 1px solid var(--color-border);
+.btn-primary {
+  border-color: var(--color-blood);
+  color: var(--color-bone);
+  background: linear-gradient(180deg, #1e0908 0%, #140504 100%);
+}
+.btn-primary:hover {
+  border-color: var(--color-blood-bright);
+  background: linear-gradient(180deg, #2e0e0b 0%, #200a08 100%);
+  color: #fff;
 }
 
-.label { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: #8a7e6e; }
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-muted);
+}
+.btn-ghost:hover {
+  border-color: var(--color-border-hi);
+  color: var(--color-bone-dim);
+  background: transparent;
+}
 
-@keyframes fadeIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
-.fade-in { animation: fadeIn 240ms ease both; }
+/* Main menu sized button */
+.btn-hero {
+  padding: 0.85rem 2.5rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.28em;
+  min-width: 260px;
+  position: relative;
+}
+.btn-hero::after {
+  content: "";
+  position: absolute;
+  left: 0; top: 20%; bottom: 20%;
+  width: 2px;
+  background: var(--color-amber);
+  transform: scaleY(0);
+  transition: transform 150ms ease;
+  transform-origin: center;
+}
+.btn-hero:hover::after { transform: scaleY(1); }
+
+/* ---- Glow effects ---- */
+.glow-blood { box-shadow: 0 0 24px var(--color-blood-glow), 0 2px 10px rgba(0,0,0,0.6); }
+.glow-amber { box-shadow: 0 0 20px var(--color-amber-glow), 0 2px 10px rgba(0,0,0,0.6); }
+
+/* ---- Animations ---- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 300ms ease both; }
+
+@keyframes fadeInFast {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.fade-in-fast { animation: fadeInFast 180ms ease both; }
 
 @keyframes pulseRing {
-  0% { box-shadow: 0 0 0 0 rgba(193,18,31,0.6); }
-  100% { box-shadow: 0 0 0 24px rgba(193,18,31,0); }
+  0%   { box-shadow: 0 0 0 0   rgba(192,16,32,0.6); }
+  100% { box-shadow: 0 0 0 24px rgba(192,16,32,0); }
 }
 .pulse-ring { animation: pulseRing 800ms ease-out; }
 
-/* prevent text selection grabs */
 .no-select { user-select: none; -webkit-user-select: none; }
 
-/* ---- Doctor / Madness horror overlay ---- */
+/* ---- Horror / Madness overlay ---- */
 .horror-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 15;
-  overflow: hidden;
+  position: absolute; inset: 0; z-index: 15; overflow: hidden;
   animation: horrorFade 850ms ease-out forwards;
 }
 .horror-vignette {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at center,
-      rgba(120,0,0,0.18) 0%,
-      rgba(170,0,0,0.55) 50%,
-      rgba(20,0,0,0.95) 100%);
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center,
+    rgba(120,0,0,0.18) 0%, rgba(170,0,0,0.55) 50%, rgba(20,0,0,0.95) 100%);
 }
 .horror-strobe {
-  position: absolute;
-  inset: 0;
-  background: rgba(200,0,0,0.18);
-  mix-blend-mode: screen;
+  position: absolute; inset: 0;
+  background: rgba(200,0,0,0.18); mix-blend-mode: screen;
   animation: horrorStrobe 120ms steps(2, end) infinite;
 }
 .horror-static {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  opacity: 0.35;
-  mix-blend-mode: overlay;
+  opacity: 0.35; mix-blend-mode: overlay;
   animation: horrorStaticShift 80ms steps(2, end) infinite;
 }
 .horror-text {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-weight: 900;
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 900;
   font-size: clamp(48px, 9vw, 140px);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1;
-  white-space: nowrap;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  line-height: 1; white-space: nowrap;
 }
-.horror-text > span {
-  position: absolute;
-  text-align: center;
-}
-.horror-text-cyan  { color: rgba(40,200,255,0.6); transform: translate(-6px, 2px); }
-.horror-text-red   { color: rgba(255,40,40,0.85); transform: translate(6px, -2px); }
+.horror-text > span { position: absolute; text-align: center; }
+.horror-text-cyan  { color: rgba(40,200,255,0.6);   transform: translate(-6px, 2px); }
+.horror-text-red   { color: rgba(255,40,40,0.85);   transform: translate(6px, -2px); }
 .horror-text-white { color: rgba(255,240,240,0.95); text-shadow: 0 0 18px rgba(255,0,0,0.7), 0 0 4px rgba(0,0,0,0.85); }
 
-@keyframes horrorFade { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes horrorStrobe { 0% { opacity: 0.35; } 100% { opacity: 0.05; } }
-@keyframes horrorStaticShift { 0% { transform: translate(0,0); } 100% { transform: translate(-6px, 4px); } }
+@keyframes horrorFade        { 0%,70% { opacity:1; } 100% { opacity:0; } }
+@keyframes horrorStrobe      { 0% { opacity:0.35; } 100% { opacity:0.05; } }
+@keyframes horrorStaticShift { 0% { transform:translate(0,0); } 100% { transform:translate(-6px,4px); } }
